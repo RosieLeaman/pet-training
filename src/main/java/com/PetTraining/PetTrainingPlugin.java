@@ -9,7 +9,6 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.NPC;
-import net.runelite.api.NPCComposition;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.Player;
 import net.runelite.api.events.GameStateChanged;
@@ -18,9 +17,9 @@ import net.runelite.api.events.StatChanged;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.game.NpcUtil;
 
 @Slf4j
 @PluginDescriptor(
@@ -39,6 +38,7 @@ public class PetTrainingPlugin extends Plugin
 
 	private final Map<Skill, Integer> playerXp = new EnumMap<>(Skill.class);
 	private final Map<Skill, Integer> petXp = new EnumMap<>(Skill.class);
+	private final Map<Skill, Integer> petLevels = new EnumMap<>(Skill.class);
 
 	@Override
 	protected void startUp() throws Exception
@@ -59,6 +59,16 @@ public class PetTrainingPlugin extends Plugin
 		{
 			petXp.replaceAll((k,v) -> 0);
 		}
+	}
+
+	@Subscribe
+	public void onClientShutdown(ClientShutdown event)
+	{
+		//XpSave save = xpState.save();
+		//if (save != null)
+		//{
+		//	saveSaveState(configManager.getRSProfileKey(), save);
+		//}
 	}
 
 	@Provides
@@ -82,25 +92,51 @@ public class PetTrainingPlugin extends Plugin
 		final Skill skill = statChanged.getSkill();
 		final int currentXp = statChanged.getXp();
 
+		if (this.currentPet != null) {
+			if (playerXp.get(skill) != null) {
+				// if it was previously null then the gain is on load so we don't care
+				log.debug("Gained exp in: {} {}", skill, currentXp);
 
+				int deltaXp = currentXp - playerXp.get(skill);
+				if (petXp.get(skill) != null) {
+					petXp.put(skill, petXp.get(skill) + deltaXp);
 
-		if (playerXp.get(skill) != null) {
-			log.debug("Gained exp in: {} {}", skill, currentXp);
+					if (petXp.get(skill) > Experience.MAX_SKILL_XP) {
+						petXp.put(skill, Experience.MAX_SKILL_XP);
+					}
+				}
+				else {
+					petXp.put(skill, deltaXp);
+				}
 
-			int deltaXp = currentXp - playerXp.get(skill);
-			if (petXp.get(skill) == null) {
-				petXp.put(skill, deltaXp);
+				log.debug("{} GAINED {} {} XP FOR NEW TOTAL {}", currentPet.getName(), deltaXp, skill, petXp.get(skill));
 			}
-			else {
-				petXp.put(skill, petXp.get(skill) + deltaXp);
+
+			playerXp.put(skill, currentXp);
+
+			checkLevelUp(skill);
+		}
+	}
+
+	public void checkLevelUp(Skill skill) {
+		if (petLevels.get(skill) != null) {
+			int skillLevel = Experience.getLevelForXp(petXp.get(skill));
+
+			if ((skillLevel > petLevels.get(skill)) && (skillLevel < Experience.MAX_REAL_LEVEL)) {
+				String levelUpStr = "%s reached Level %d %s!";
+				String msg = String.format(levelUpStr, this.currentPet.getName(), skillLevel, skill);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
+			}
+			if ((skillLevel > petLevels.get(skill)) && (skillLevel == Experience.MAX_REAL_LEVEL)) {
+				String levelUpStr = "%s maxed %s!";
+				String msg = String.format(levelUpStr, this.currentPet.getName(), skill);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
 			}
 
-			log.debug("{} GAINED {} {} XP FOR NEW TOTAL {}", currentPet.getName(), deltaXp, skill, petXp.get(skill));
+			petLevels.put(skill, skillLevel);
 		}
 		else {
-			log.debug("Gained exp ON LOAD in: {} {}", skill, currentXp);
+			petLevels.put(skill, 1);
 		}
-
-        playerXp.put(skill, currentXp);
 	}
 }
