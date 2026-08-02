@@ -14,12 +14,13 @@ import net.runelite.api.NPC;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.Experience;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ClientShutdown;
+import net.runelite.client.events.ConfigSync;
+import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
@@ -70,9 +71,21 @@ public class PetTrainingPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
+	{
+		saveCurrentPetStats();
+	}
+
+	@Subscribe
 	public void onClientShutdown(ClientShutdown event)
 	{
-		//savePetStats(this.currentPet.getName(), this.petLevels);
+		saveCurrentPetStats();
+	}
+
+	@Subscribe
+	public void onConfigSync(ConfigSync configSync)
+	{
+		saveCurrentPetStats();
 	}
 
 	@Provides
@@ -88,52 +101,52 @@ public class PetTrainingPlugin extends Plugin
 
 	@Subscribe
 	public void onNpcDespawned(NpcDespawned npcDespawned) {
-		if (npcDespawned.getActor() == this.currentPet) {
+		if (npcDespawned.getActor() == currentPet) {
 			log.debug("Follower despawned");
-			//savePetStats(this.currentPet.getName(), this.petLevels);
+			// save and then delete the current values
+			removeCurrentPet();
 		}
 
 		updateFollower();
 	}
 
+	public void removeCurrentPet() {
+		saveCurrentPetStats();
+		this.currentPetLevels = null;
+		this.currentPet = null;
+	}
+
 	public void updateFollower() {
 		NPC follower = client.getFollower();
-		this.currentPet = follower;
 
-		if (this.currentPet != null) {
-			log.debug("Current follower is: {}", follower.getName());
-
-			if (this.currentPetLevels == null) {
-				this.currentPetLevels = new PetLevels(follower.getName());
-				log.debug("made fresh pet levels because it was null");
-			} else {
-				log.debug("currently saving levels for: {}", this.currentPetLevels.getName());
-				if (this.currentPetLevels.getName() != this.currentPet.getName()){
-					log.debug("need fresh pet levels because it's new pet: prev {} curr {}", this.currentPetLevels.getName(), this.currentPet.getName());
-					this.currentPetLevels = new PetLevels(follower.getName());
-				}
+		if (follower != null && follower != currentPet){
+			if (currentPet != null) {
+				// some weird situation where our follower got replaced immediately
+				// save it and remove it
+				removeCurrentPet();
 			}
+			// now we are confident we have no current pet and can add the new follower which isn't null
+			this.currentPet = follower;
+			String name = currentPet.getName();
+			this.currentPetLevels = getExistingLevelsElseNew(name);
 
+			log.debug("no current pet; create new or pull existing");
 			log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
 			log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
 		}
 	}
 
-	public void savePetStats(String petName, Map<Skill, Integer> petLevels) {
-		final String profile = configManager.getRSProfileKey();
-		if (profile == null)
-		{
-			return;
+	public PetLevels getExistingLevelsElseNew(String name) {
+		// this will get the existing pet levels if there are any saved, else return a new PetLevels
+		PetLevels existingLevels = loadPetStats(name);
+
+		if (existingLevels == null) {
+			log.debug("nonexistent create new");
+			return new PetLevels(name);
 		}
 
-		if (Strings.isNullOrEmpty(profile))
-		{
-			log.debug("Trying to save pet exp with no profile!");
-			return;
-		}
-
-		String json = gson.toJson(petLevels);
-		configManager.setConfiguration(PetTrainingConfig.GROUP, profile, "levels_" + petName, json);
+		log.debug("found existing config; load it");
+		return existingLevels;
 	}
 
 	@Subscribe
@@ -141,13 +154,13 @@ public class PetTrainingPlugin extends Plugin
 	{
 		final Skill skill = statChanged.getSkill();
 		final int currentXp = statChanged.getXp();
-		final int currentPetLevel = currentPetLevels.getLevel(skill);
 
 		log.debug("xp drop {} {}", skill, currentXp);
 
         playerXp.putIfAbsent(skill, currentXp);
 
 		if (this.currentPet != null) {
+			final int currentPetLevel = currentPetLevels.getLevel(skill);
 			int deltaXp = currentXp - playerXp.get(skill);
 			currentPetLevels.addXp(skill, deltaXp);
 
@@ -168,5 +181,42 @@ public class PetTrainingPlugin extends Plugin
 		String msg = String.format(levelUpStr, currentPet.getName(), skill, newLevel);
 
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
+	}
+
+	public void saveCurrentPetStats() {
+		if (currentPetLevels != null) {
+			final String profile = configManager.getRSProfileKey();
+			if (profile == null) {
+				return;
+			}
+
+			if (Strings.isNullOrEmpty(profile)) {
+				log.debug("Trying to save pet exp with no profile!");
+				return;
+			}
+
+			String json = gson.toJson(currentPetLevels);
+			configManager.setConfiguration(PetTrainingConfig.GROUP, profile, "levels_" + currentPetLevels.getName(), json);
+
+		}
+	}
+
+	public PetLevels loadPetStats(String name) {
+		String profile = configManager.getRSProfileKey();
+
+		if (Strings.isNullOrEmpty(profile))
+		{
+			log.debug("Trying to get pet exp with no profile!");
+			return null;
+		}
+
+		String json = configManager.getConfiguration(PetTrainingConfig.GROUP, profile, "levels_" + name);
+
+		if (json == null)
+		{
+			return null;
+		}
+
+		return gson.fromJson(json, PetLevels.class);
 	}
 }
