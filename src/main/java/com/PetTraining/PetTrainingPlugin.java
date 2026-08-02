@@ -43,10 +43,9 @@ public class PetTrainingPlugin extends Plugin
 	private Gson gson;
 
 	private NPC currentPet;
+	private PetLevels currentPetLevels;
 
 	private final Map<Skill, Integer> playerXp = new EnumMap<>(Skill.class);
-	private final Map<Skill, Integer> petXp = new EnumMap<>(Skill.class);
-	private final Map<Skill, Integer> petLevels = new EnumMap<>(Skill.class);
 
 	@Override
 	protected void startUp() throws Exception
@@ -65,8 +64,7 @@ public class PetTrainingPlugin extends Plugin
 	{
 		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
 		{
-			petXp.replaceAll((k,v) -> 0);
-
+			//petXp.replaceAll((k,v) -> 0);
 			updateFollower();
 		}
 	}
@@ -92,7 +90,7 @@ public class PetTrainingPlugin extends Plugin
 	public void onNpcDespawned(NpcDespawned npcDespawned) {
 		if (npcDespawned.getActor() == this.currentPet) {
 			log.debug("Follower despawned");
-			savePetStats(this.currentPet.getName(), this.petLevels);
+			//savePetStats(this.currentPet.getName(), this.petLevels);
 		}
 
 		updateFollower();
@@ -100,10 +98,25 @@ public class PetTrainingPlugin extends Plugin
 
 	public void updateFollower() {
 		NPC follower = client.getFollower();
-		if (follower != null) {
-			log.debug("Current follower is: {}", follower.getName());
-		}
 		this.currentPet = follower;
+
+		if (this.currentPet != null) {
+			log.debug("Current follower is: {}", follower.getName());
+
+			if (this.currentPetLevels == null) {
+				this.currentPetLevels = new PetLevels(follower.getName());
+				log.debug("made fresh pet levels because it was null");
+			} else {
+				log.debug("currently saving levels for: {}", this.currentPetLevels.getName());
+				if (this.currentPetLevels.getName() != this.currentPet.getName()){
+					log.debug("need fresh pet levels because it's new pet: prev {} curr {}", this.currentPetLevels.getName(), this.currentPet.getName());
+					this.currentPetLevels = new PetLevels(follower.getName());
+				}
+			}
+
+			log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
+			log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
+		}
 	}
 
 	public void savePetStats(String petName, Map<Skill, Integer> petLevels) {
@@ -128,53 +141,32 @@ public class PetTrainingPlugin extends Plugin
 	{
 		final Skill skill = statChanged.getSkill();
 		final int currentXp = statChanged.getXp();
+		final int currentPetLevel = currentPetLevels.getLevel(skill);
+
+		log.debug("xp drop {} {}", skill, currentXp);
+
+        playerXp.putIfAbsent(skill, currentXp);
 
 		if (this.currentPet != null) {
-			if (playerXp.get(skill) != null) {
-				// if it was previously null then the gain is on load so we don't add it to the pets exp
-				log.debug("Gained exp in: {} {}", skill, currentXp);
+			int deltaXp = currentXp - playerXp.get(skill);
+			currentPetLevels.addXp(skill, deltaXp);
 
-				int deltaXp = currentXp - playerXp.get(skill);
-				if (petXp.get(skill) != null) {
-					petXp.put(skill, petXp.get(skill) + deltaXp);
+			log.debug("{} GAINED {} {} XP FOR NEW TOTAL {}", currentPet.getName(), deltaXp, skill, currentPetLevels.getXp(skill));
 
-					// don't add exp over max xp
-					if (petXp.get(skill) > Experience.MAX_SKILL_XP) {
-						petXp.put(skill, Experience.MAX_SKILL_XP);
-					}
-				}
-				else {
-					petXp.put(skill, deltaXp);
-				}
+			int newLevel = currentPetLevels.getLevel(skill);
 
-				log.debug("{} GAINED {} {} XP FOR NEW TOTAL {}", currentPet.getName(), deltaXp, skill, petXp.get(skill));
+			for (int i = currentPetLevel + 1; i <= newLevel; i++) {
+				showLevelUpMessage(skill, i);
 			}
-
-			playerXp.put(skill, currentXp);
-
-			checkLevelUp(skill);
 		}
+
+		playerXp.put(skill, currentXp);
 	}
 
-	public void checkLevelUp(Skill skill) {
-		if (petLevels.get(skill) != null) {
-			int skillLevel = Experience.getLevelForXp(petXp.get(skill));
+	public void showLevelUpMessage(Skill skill, Integer newLevel) {
+		String levelUpStr = "%s reached %s Level %d!";
+		String msg = String.format(levelUpStr, currentPet.getName(), skill, newLevel);
 
-			if ((skillLevel > petLevels.get(skill)) && (skillLevel < Experience.MAX_REAL_LEVEL)) {
-				String levelUpStr = "%s reached Level %d %s!";
-				String msg = String.format(levelUpStr, this.currentPet.getName(), skillLevel, skill);
-				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
-			}
-			if ((skillLevel > petLevels.get(skill)) && (skillLevel == Experience.MAX_REAL_LEVEL)) {
-				String levelUpStr = "%s maxed %s!";
-				String msg = String.format(levelUpStr, this.currentPet.getName(), skill);
-				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
-			}
-
-			petLevels.put(skill, skillLevel);
-		}
-		else {
-			petLevels.put(skill, 1);
-		}
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
 	}
 }
