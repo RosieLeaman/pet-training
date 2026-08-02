@@ -1,6 +1,8 @@
 package com.PetTraining;
 
 import com.google.inject.Provides;
+import com.google.gson.Gson;
+import com.google.common.base.Strings;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import java.util.Map;
@@ -10,7 +12,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.NPC;
 import net.runelite.api.events.NpcSpawned;
-import net.runelite.api.Player;
+import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.Experience;
 import net.runelite.api.events.StatChanged;
@@ -33,6 +35,12 @@ public class PetTrainingPlugin extends Plugin
 
 	@Inject
 	private PetTrainingConfig config;
+
+	@Inject
+	private ConfigManager configManager;
+
+	@Inject
+	private Gson gson;
 
 	private NPC currentPet;
 
@@ -58,17 +66,15 @@ public class PetTrainingPlugin extends Plugin
 		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
 		{
 			petXp.replaceAll((k,v) -> 0);
+
+			updateFollower();
 		}
 	}
 
 	@Subscribe
 	public void onClientShutdown(ClientShutdown event)
 	{
-		//XpSave save = xpState.save();
-		//if (save != null)
-		//{
-		//	saveSaveState(configManager.getRSProfileKey(), save);
-		//}
+		//savePetStats(this.currentPet.getName(), this.petLevels);
 	}
 
 	@Provides
@@ -79,11 +85,42 @@ public class PetTrainingPlugin extends Plugin
 
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event) {
+		updateFollower();
+	}
+
+	@Subscribe
+	public void onNpcDespawned(NpcDespawned npcDespawned) {
+		if (npcDespawned.getActor() == this.currentPet) {
+			log.debug("Follower despawned");
+			savePetStats(this.currentPet.getName(), this.petLevels);
+		}
+
+		updateFollower();
+	}
+
+	public void updateFollower() {
 		NPC follower = client.getFollower();
 		if (follower != null) {
 			log.debug("Current follower is: {}", follower.getName());
 		}
 		this.currentPet = follower;
+	}
+
+	public void savePetStats(String petName, Map<Skill, Integer> petLevels) {
+		final String profile = configManager.getRSProfileKey();
+		if (profile == null)
+		{
+			return;
+		}
+
+		if (Strings.isNullOrEmpty(profile))
+		{
+			log.debug("Trying to save pet exp with no profile!");
+			return;
+		}
+
+		String json = gson.toJson(petLevels);
+		configManager.setConfiguration(PetTrainingConfig.GROUP, profile, "levels_" + petName, json);
 	}
 
 	@Subscribe
@@ -94,13 +131,14 @@ public class PetTrainingPlugin extends Plugin
 
 		if (this.currentPet != null) {
 			if (playerXp.get(skill) != null) {
-				// if it was previously null then the gain is on load so we don't care
+				// if it was previously null then the gain is on load so we don't add it to the pets exp
 				log.debug("Gained exp in: {} {}", skill, currentXp);
 
 				int deltaXp = currentXp - playerXp.get(skill);
 				if (petXp.get(skill) != null) {
 					petXp.put(skill, petXp.get(skill) + deltaXp);
 
+					// don't add exp over max xp
 					if (petXp.get(skill) > Experience.MAX_SKILL_XP) {
 						petXp.put(skill, Experience.MAX_SKILL_XP);
 					}
