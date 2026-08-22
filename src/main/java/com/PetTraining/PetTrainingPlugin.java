@@ -4,7 +4,11 @@ import com.google.inject.Provides;
 import com.google.gson.Gson;
 import com.google.common.base.Strings;
 import javax.inject.Inject;
+
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+
+import java.awt.image.BufferedImage;
 import java.util.Map;
 import java.util.EnumMap;
 import net.runelite.api.ChatMessageType;
@@ -23,6 +27,9 @@ import net.runelite.client.events.ConfigSync;
 import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 
 @Slf4j
 @PluginDescriptor(
@@ -38,12 +45,21 @@ public class PetTrainingPlugin extends Plugin
 	private PetTrainingConfig config;
 
 	@Inject
+	private ClientToolbar clientToolbar;
+
+	private PetTrainingPanel panel;
+	private NavigationButton navButton;
+
+	@Inject
 	private ConfigManager configManager;
 
 	@Inject
 	private Gson gson;
 
+	@Getter
 	private NPC currentPet;
+
+	@Getter
 	private PetLevels currentPetLevels;
 
 	private final Map<Skill, Integer> playerXp = new EnumMap<>(Skill.class);
@@ -51,13 +67,26 @@ public class PetTrainingPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		log.debug("Example started!");
+		panel = injector.getInstance(PetTrainingPanel.class);
+
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/skill_icons/overall.png");
+
+		navButton = NavigationButton.builder()
+				.tooltip("Pet Skills")
+				.icon(icon)
+				.priority(2)
+				.panel(panel)
+				.build();
+
+		clientToolbar.addNavigation(navButton);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
-		log.debug("Example stopped!");
+		clientToolbar.removeNavigation(navButton);
+		panel = null;
+		navButton = null;
 	}
 
 	@Subscribe
@@ -133,6 +162,8 @@ public class PetTrainingPlugin extends Plugin
 			log.debug("no current pet; create new or pull existing");
 			log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
 			log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
+
+			panel.refresh();
 		}
 	}
 
@@ -218,5 +249,12 @@ public class PetTrainingPlugin extends Plugin
 		}
 
 		return gson.fromJson(json, PetLevels.class);
+	}
+
+	public Integer getCurrentPetSkill(Skill skill) {
+		if (currentPet != null) {
+			return currentPetLevels.getLevel(skill);
+		}
+		return null;
 	}
 }
