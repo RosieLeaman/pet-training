@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.EnumMap;
 import net.runelite.api.ChatMessageType;
@@ -205,6 +207,7 @@ public class PetTrainingPlugin extends Plugin
 		}
 
 		playerXp.put(skill, currentXp);
+		panel.refresh();
 	}
 
 	public void showLevelUpMessage(Skill skill, Integer newLevel) {
@@ -249,6 +252,28 @@ public class PetTrainingPlugin extends Plugin
 		}
 
 		return gson.fromJson(json, PetLevels.class);
+	}
+
+	public List<String> getAllSavedPets() {
+		String profile = configManager.getRSProfileKey();
+
+		if (Strings.isNullOrEmpty(profile))
+		{
+			log.debug("Trying to get pet exp with no profile!");
+			return null;
+		}
+
+		List<String> idList = new ArrayList<>();
+		List<String> configKeys = configManager.getRSProfileConfigurationKeys(PetTrainingConfig.GROUP, profile, "name");
+
+		for (String key : configKeys) {
+			String prefix = "levels_";
+			if (key.startsWith(prefix)) {
+				idList.add(key.replace(prefix, ""));
+			}
+		}
+
+		return idList;
 	}
 
 	public Integer getCurrentPetSkill(Skill skill) {

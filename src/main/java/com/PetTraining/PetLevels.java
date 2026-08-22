@@ -1,7 +1,6 @@
 package com.PetTraining;
 
 import lombok.Getter;
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Experience;
 import net.runelite.api.Skill;
 
@@ -54,4 +53,23 @@ public class PetLevels {
         levels.put(skill, Experience.getLevelForXp(xp.get(skill)));
     }
 
+    public Integer getExpNextLevel(Skill skill) {
+        if (levels.get(skill) < 99){
+            return Experience.getXpForLevel(levels.get(skill) + 1);
+        }
+        else {
+            return 0;
+        }
+    }
+
+    public Integer getRemainingExpToNextLevel(Skill skill) {
+        Integer expNextLevel = getExpNextLevel(skill);
+
+        if (expNextLevel > 0){
+            return expNextLevel - xp.get(skill);
+        }
+        else {
+            return 0;
+        }
+    }
 }

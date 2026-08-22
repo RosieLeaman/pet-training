@@ -25,6 +25,7 @@
 
 package com.PetTraining;
 
+import com.google.common.base.Strings;
 import com.google.inject.Inject;
 
 import java.awt.*;
@@ -33,8 +34,9 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-
+import java.util.List;
 import net.runelite.api.Client;
+import net.runelite.api.Skill;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
@@ -68,8 +70,10 @@ public class PetTrainingPanel extends PluginPanel {
         };
 
         private final Map<PetSkill, JLabel> skillLabels = new HashMap<>();
+        private final JLabel nameLabel;
 
-        private String selectedPet = null;
+        private Boolean displayCurrent = true;
+        private PetLevels displayed;
 
         void init()
         {
@@ -108,10 +112,16 @@ public class PetTrainingPanel extends PluginPanel {
         // Panel with currently displayed pet's name
         JPanel namePanel = new JPanel();
         JLabel nameLabel = new JLabel();
-        nameLabel.setText("PET NAME");
+        if (plugin.getCurrentPet() != null) {
+            nameLabel.setText(plugin.getCurrentPet().getName());
+        }
+        else {
+            nameLabel.setText("No pet selected");
+        }
         namePanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         namePanel.setBorder(new EmptyBorder(2, 0, 2, 0));
         namePanel.add(nameLabel);
+        this.nameLabel = nameLabel;
         add(namePanel, c);
         c.gridy++;
 
@@ -168,12 +178,38 @@ public class PetTrainingPanel extends PluginPanel {
             return;
         }
 
+        this.nameLabel.setText(plugin.getCurrentPet().getName());
+
         for (Map.Entry<PetSkill, JLabel> entry : skillLabels.entrySet()) {
             PetSkill skill = entry.getKey();
             JLabel label = entry.getValue();
 
             Integer actualLevel = plugin.getCurrentPetSkill(skill.getSkill());
             label.setText(actualLevel == null ? "--" : String.valueOf(actualLevel));
+            label.setToolTipText(skillToolTip(skill, plugin.getCurrentPetLevels()));
             }
-        }
     }
+
+    private String skillToolTip(PetSkill petSkill, PetLevels levels){
+        String openingTags = "<html><body style = 'padding: 5px;color:#989898'>";
+        String closingTags = "</html><body>";
+
+        String content = "";
+
+        Skill skill = petSkill.getSkill();
+        Integer currXp = levels.getXp(skill);
+        Integer nextLevel = levels.getExpNextLevel(skill);
+        Integer remaining = levels.getRemainingExpToNextLevel(skill);
+
+        content += "<p><span style = 'color:white'>" + skill.getName() + " XP:</span> " + currXp + "</p>";
+        content += "<p><span style = 'color:white'>Next level at:</span> " + nextLevel + "</p>";
+        content += "<p><span style = 'color:white'>Remaining XP:</span> " + remaining + "</p>";
+
+        return openingTags + content + closingTags;
+    }
+
+    private List<String> getDropdownOptions(){
+        return null;
+    }
+
+}
