@@ -56,7 +56,6 @@ public class PetTrainingPanel extends PluginPanel {
 
         private final SpriteManager spriteManager;
         private final PetTrainingPlugin plugin;
-        private final PetTrainingConfig config;
 
         private final PetSkill[] SKILLS = {
                 ATTACK, HITPOINTS, MINING,
@@ -97,7 +96,6 @@ public class PetTrainingPanel extends PluginPanel {
     @Inject
     public PetTrainingPanel(PetTrainingConfig config, SpriteManager spriteManager, PetTrainingPlugin plugin) {
         this.spriteManager = spriteManager;
-        this.config = config;
         this.plugin = plugin;
 
         // Expand sub items to fit width of panel, align to top of panel
@@ -140,6 +138,8 @@ public class PetTrainingPanel extends PluginPanel {
         }
 
         add(statsPanel, c);
+
+        // Drop down selection box to change the pet
 
     }
 
@@ -209,7 +209,14 @@ public class PetTrainingPanel extends PluginPanel {
     }
 
     private List<String> getDropdownOptions(){
-        return null;
+        List<String> availablePets = plugin.getAllSavedPets();
+
+        if (plugin.getCurrentPet() != null) {
+            availablePets.remove(plugin.getCurrentPet().getName());
+            availablePets.add(0, "Current (" + plugin.getCurrentPet().getName() + ")");
+        }
+
+        return availablePets;
     }
 
 }
