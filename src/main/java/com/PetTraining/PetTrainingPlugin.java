@@ -211,10 +211,27 @@ public class PetTrainingPlugin extends Plugin
 	}
 
 	public void showLevelUpMessage(Skill skill, Integer newLevel) {
-		String levelUpStr = "%s reached %s Level %d!";
-		String msg = String.format(levelUpStr, currentPet.getName(), skill, newLevel);
+		String levelUpStr = "~~%s just advanced a %s Level! Their %s Level is now %d.~~";
+		String skillCapitalized = capitalize(skill.getName());
+		String msg = String.format(levelUpStr, currentPet.getName(), skillCapitalized, skillCapitalized, newLevel);
 
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", msg, null);
+	}
+
+	public String capitalize(String inputString) {
+		if (inputString == null || inputString.isEmpty()) {
+			return inputString;
+		}
+
+		// get the first character of the inputString
+		char firstLetter = inputString.charAt(0);
+
+		// convert it to an UpperCase letter
+		char capitalFirstLetter = Character.toUpperCase(firstLetter);
+
+		// return the output string by updating
+		// the first char of the input string
+		return capitalFirstLetter + inputString.substring(1);
 	}
 
 	public void saveCurrentPetStats() {
