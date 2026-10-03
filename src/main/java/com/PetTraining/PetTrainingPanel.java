@@ -25,10 +25,11 @@
 
 package com.PetTraining;
 
-import com.google.common.base.Strings;
 import com.google.inject.Inject;
 
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.util.*;
 import java.util.List;
@@ -70,12 +71,12 @@ public class PetTrainingPanel extends PluginPanel {
 
         private final Map<PetSkill, JLabel> skillLabels = new HashMap<>();
         private final JLabel nameLabel;
-        private JComboBox<String> dropdown = null;
         private final JPanel dropdownPanel;
         public GridBagConstraints constraints;
 
-        private Boolean displayCurrent = true;
-        private PetLevels displayed;
+        private Boolean displayedIsFollower = false;
+        private String displayName;
+        private PetLevels displayedPetLevels;
 
         void init()
         {
@@ -95,9 +96,8 @@ public class PetTrainingPanel extends PluginPanel {
 
         }
 
-
     @Inject
-    public PetTrainingPanel(PetTrainingConfig config, SpriteManager spriteManager, PetTrainingPlugin plugin) {
+    public PetTrainingPanel(SpriteManager spriteManager, PetTrainingPlugin plugin) {
         this.spriteManager = spriteManager;
         this.plugin = plugin;
 
@@ -134,11 +134,11 @@ public class PetTrainingPanel extends PluginPanel {
         statsPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         statsPanel.setBorder(new EmptyBorder(5, 0, 5, 0));
 
-        // For each skill on the ingame skill panel, create a Label and add it to the UI
+        // For each skill on the in-game skill panel, create a Label and add it to the UI
         //for (String skill : skills)
         for (PetSkill skill: SKILLS)
         {
-            JPanel panel = makeSkillPanel(skill, 1);
+            JPanel panel = makeSkillPanel(skill);
             statsPanel.add(panel);
         }
 
@@ -151,22 +151,28 @@ public class PetTrainingPanel extends PluginPanel {
         dropdownPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
         this.dropdownPanel = dropdownPanel;
         add(dropdownPanel, c);
-
-
-        // Drop down selection box to change the pet
-        JComboBox<String> dropdown = createDropdown();
-        dropdownPanel.add(dropdown);
-        this.dropdown = dropdown;
+        // Don't add dropdown now as need to load profile first
 
     }
 
-    private JPanel makeSkillPanel(PetSkill skill, int lvl) {
+    private Integer getSkillLevel(PetSkill skill){
+        Integer level = 0;
+
+        if (displayedIsFollower) {
+            level = plugin.getCurrentPetLevels().getLevel(skill.getSkill());
+        }
+        else if (displayedPetLevels != null) {
+            level = displayedPetLevels.getLevel(skill.getSkill());
+        }
+
+        return level;
+    }
+
+    private JPanel makeSkillPanel(PetSkill skill) {
         JLabel label = new JLabel();
         label.setToolTipText(skill == null ? "Combat" : skill.getName());
         label.setFont(FontManager.getRunescapeSmallFont());
-        label.setText(String.valueOf(lvl));
-        Integer actualLevel = plugin.getCurrentPetSkill(skill.getSkill());
-        label.setText(actualLevel == null ? "--" : String.valueOf(actualLevel));
+        label.setText("1");
 
         spriteManager.getSpriteAsync(skill == null ? SpriteID.SideIcons.COMBAT : skill.getSpriteId(), 0, (sprite) ->
                 SwingUtilities.invokeLater(() ->
@@ -188,31 +194,71 @@ public class PetTrainingPanel extends PluginPanel {
         return skillPanel;
     }
 
-    public void refresh() {
+    public void setDropdown() {
         repaint();
 
-        if (plugin.getCurrentPet() == null) {
-            return;
+        // Drop down selection box to change the pet
+        List<String> dropdownOptions = getDropdownOptions();
+
+        if (dropdownOptions == null) {
+            dropdownOptions = new ArrayList<>();
+            dropdownOptions.add("No pets to select");
+        }
+        String[] dropdownArray = dropdownOptions.toArray(new String[0]);
+
+        JComboBox<String> dropdown = new JComboBox<>(dropdownArray);
+
+        this.dropdownPanel.add(dropdown);
+
+        dropdown.addActionListener(new ActionListener() {
+
+            public void actionPerformed(ActionEvent e)
+            {
+                String selectedName = dropdown.getSelectedItem().toString();
+                if (selectedName != null) {
+                    changeDisplayedPet(selectedName);
+                }
+            }
+        });
+
+        add(dropdownPanel, this.constraints);
+    }
+
+
+    public void refreshStatPanel(Boolean forceUpdate) {
+        repaint();
+
+        if (!forceUpdate) {
+            if (displayName != null && !Objects.equals(plugin.getCurrentPetName(), displayName)) {
+                return;
+            }
         }
 
-        this.nameLabel.setText(plugin.getCurrentPet().getName());
+        if (displayName == null) {
+            this.nameLabel.setText("No current follower");
+        }
+        else {
+            this.nameLabel.setText(displayName);
+        }
 
+        // now set the skill values
         for (Map.Entry<PetSkill, JLabel> entry : skillLabels.entrySet()) {
             PetSkill skill = entry.getKey();
             JLabel label = entry.getValue();
 
-            Integer actualLevel = plugin.getCurrentPetSkill(skill.getSkill());
+            Integer actualLevel = getSkillLevel(skill);
             label.setText(actualLevel == null ? "--" : String.valueOf(actualLevel));
-            label.setToolTipText(skillToolTip(skill, plugin.getCurrentPetLevels()));
+
+            if (displayedIsFollower) {
+                label.setToolTipText(skillToolTip(skill, plugin.getCurrentPetLevels()));
             }
-
-        // Try to refresh dropdown
-        this.dropdownPanel.remove(this.dropdown);
-        JComboBox<String> newDropdown = createDropdown();
-        this.dropdownPanel.add(newDropdown);
-        this.dropdown = newDropdown;
-
-        add(dropdownPanel, this.constraints);
+            else if (displayedPetLevels != null) {
+                label.setToolTipText(skillToolTip(skill, displayedPetLevels));
+            }
+            else {
+                label.setToolTipText("");
+            }
+        }
 
     }
 
@@ -236,31 +282,34 @@ public class PetTrainingPanel extends PluginPanel {
 
     private List<String> getDropdownOptions(){
         List<String> availablePets = plugin.getAllSavedPets();
-        //Collections.sort(availablePets);
 
         if (availablePets == null) {
             return null;
         }
-
-        if (plugin.getCurrentPet() != null) {
-            availablePets.remove(plugin.getCurrentPet().getName());
-            availablePets.add(0, "Current (" + plugin.getCurrentPet().getName() + ")");
-        }
+        Collections.sort(availablePets);
 
         return availablePets;
     }
 
-    private JComboBox<String> createDropdown(){
-        // Drop down selection box to change the pet
-        List<String> dropdownOptions = getDropdownOptions();
-
-        if (dropdownOptions == null) {
-            dropdownOptions = new ArrayList<>();
-            dropdownOptions.add("No pets to select");
+    public void changeDisplayedPet(String selectedName){
+        // conditions where nothing changes
+        if (Objects.equals(selectedName, "No pets to select")) {
+            return;
         }
-        String[] dropdownArray = dropdownOptions.toArray(new String[0]);
 
-        return new JComboBox<String>(dropdownArray);
+        displayName = selectedName;
+
+        if (Objects.equals(plugin.getCurrentPetName(), displayName)) {
+            displayedIsFollower = true;
+            displayedPetLevels = null;
+        }
+        else {
+            displayedIsFollower = false;
+            displayedPetLevels = plugin.loadPetStats(selectedName);
+        }
+
+        refreshStatPanel(true);
+        }
+
     }
 
-}

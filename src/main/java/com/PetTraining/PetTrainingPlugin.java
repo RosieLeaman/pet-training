@@ -62,6 +62,9 @@ public class PetTrainingPlugin extends Plugin
 	private NPC currentPet;
 
 	@Getter
+	private String currentPetName;
+
+	@Getter
 	private PetLevels currentPetLevels;
 
 	private final Map<Skill, Integer> playerXp = new EnumMap<>(Skill.class);
@@ -98,6 +101,8 @@ public class PetTrainingPlugin extends Plugin
 		{
 			//petXp.replaceAll((k,v) -> 0);
 			updateFollower();
+			panel.setDropdown();
+			panel.refreshStatPanel(true);
 		}
 	}
 
@@ -159,13 +164,14 @@ public class PetTrainingPlugin extends Plugin
 			// now we are confident we have no current pet and can add the new follower which isn't null
 			this.currentPet = follower;
 			String name = currentPet.getName();
+			this.currentPetName = name;
 			this.currentPetLevels = getExistingLevelsElseNew(name);
 
 			log.debug("no current pet; create new or pull existing");
 			log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
 			log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
 
-			panel.refresh();
+			panel.changeDisplayedPet(currentPetName);
 		}
 	}
 
@@ -207,7 +213,7 @@ public class PetTrainingPlugin extends Plugin
 		}
 
 		playerXp.put(skill, currentXp);
-		panel.refresh();
+		panel.refreshStatPanel(false);
 	}
 
 	public void showLevelUpMessage(Skill skill, Integer newLevel) {
@@ -257,7 +263,6 @@ public class PetTrainingPlugin extends Plugin
 
 		if (Strings.isNullOrEmpty(profile))
 		{
-			log.debug("Trying to get pet exp with no profile!");
 			return null;
 		}
 
@@ -276,7 +281,6 @@ public class PetTrainingPlugin extends Plugin
 
 		if (Strings.isNullOrEmpty(profile))
 		{
-			log.debug("Trying to get pet exp with no profile!");
 			return null;
 		}
 
@@ -295,10 +299,4 @@ public class PetTrainingPlugin extends Plugin
 		return idList;
 	}
 
-	public Integer getCurrentPetSkill(Skill skill) {
-		if (currentPet != null) {
-			return currentPetLevels.getLevel(skill);
-		}
-		return null;
-	}
 }
