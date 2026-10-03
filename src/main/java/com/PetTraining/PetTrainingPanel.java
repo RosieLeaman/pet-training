@@ -30,11 +30,11 @@ import com.google.inject.Inject;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import java.util.List;
+
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.client.eventbus.EventBus;
@@ -70,6 +70,9 @@ public class PetTrainingPanel extends PluginPanel {
 
         private final Map<PetSkill, JLabel> skillLabels = new HashMap<>();
         private final JLabel nameLabel;
+        private JComboBox<String> dropdown = null;
+        private final JPanel dropdownPanel;
+        public GridBagConstraints constraints;
 
         private Boolean displayCurrent = true;
         private PetLevels displayed;
@@ -107,6 +110,8 @@ public class PetTrainingPanel extends PluginPanel {
         c.weighty = 0;
         c.insets = new Insets(0, 0, 10, 0);
 
+        this.constraints = c;
+
         // Panel with currently displayed pet's name
         JPanel namePanel = new JPanel();
         JLabel nameLabel = new JLabel();
@@ -138,8 +143,20 @@ public class PetTrainingPanel extends PluginPanel {
         }
 
         add(statsPanel, c);
+        c.gridy++;
+
+        // Panel that holds the dropdown menu
+        JPanel dropdownPanel = new JPanel();
+        dropdownPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        dropdownPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
+        this.dropdownPanel = dropdownPanel;
+        add(dropdownPanel, c);
+
 
         // Drop down selection box to change the pet
+        JComboBox<String> dropdown = createDropdown();
+        dropdownPanel.add(dropdown);
+        this.dropdown = dropdown;
 
     }
 
@@ -188,6 +205,15 @@ public class PetTrainingPanel extends PluginPanel {
             label.setText(actualLevel == null ? "--" : String.valueOf(actualLevel));
             label.setToolTipText(skillToolTip(skill, plugin.getCurrentPetLevels()));
             }
+
+        // Try to refresh dropdown
+        this.dropdownPanel.remove(this.dropdown);
+        JComboBox<String> newDropdown = createDropdown();
+        this.dropdownPanel.add(newDropdown);
+        this.dropdown = newDropdown;
+
+        add(dropdownPanel, this.constraints);
+
     }
 
     private String skillToolTip(PetSkill petSkill, PetLevels levels){
@@ -210,6 +236,11 @@ public class PetTrainingPanel extends PluginPanel {
 
     private List<String> getDropdownOptions(){
         List<String> availablePets = plugin.getAllSavedPets();
+        //Collections.sort(availablePets);
+
+        if (availablePets == null) {
+            return null;
+        }
 
         if (plugin.getCurrentPet() != null) {
             availablePets.remove(plugin.getCurrentPet().getName());
@@ -217,6 +248,19 @@ public class PetTrainingPanel extends PluginPanel {
         }
 
         return availablePets;
+    }
+
+    private JComboBox<String> createDropdown(){
+        // Drop down selection box to change the pet
+        List<String> dropdownOptions = getDropdownOptions();
+
+        if (dropdownOptions == null) {
+            dropdownOptions = new ArrayList<>();
+            dropdownOptions.add("No pets to select");
+        }
+        String[] dropdownArray = dropdownOptions.toArray(new String[0]);
+
+        return new JComboBox<String>(dropdownArray);
     }
 
 }

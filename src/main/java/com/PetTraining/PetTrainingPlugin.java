@@ -281,7 +281,7 @@ public class PetTrainingPlugin extends Plugin
 		}
 
 		List<String> idList = new ArrayList<>();
-		List<String> configKeys = configManager.getRSProfileConfigurationKeys(PetTrainingConfig.GROUP, profile, "name");
+		List<String> configKeys = configManager.getRSProfileConfigurationKeys(PetTrainingConfig.GROUP, profile, "levels");
 
 		for (String key : configKeys) {
 			String prefix = "levels_";
@@ -289,6 +289,8 @@ public class PetTrainingPlugin extends Plugin
 				idList.add(key.replace(prefix, ""));
 			}
 		}
+
+		log.debug("all saved pet names {}", idList);
 
 		return idList;
 	}
