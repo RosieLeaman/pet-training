@@ -74,16 +74,21 @@ public class PetTrainingPlugin extends Plugin
 	{
 		panel = injector.getInstance(PetTrainingPanel.class);
 
-		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/skill_icons/overall.png");
+		//final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/skill_icons/overall.png");
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/icon.png");
 
 		navButton = NavigationButton.builder()
-				.tooltip("Pet Skills")
+				.tooltip("Pet Training")
 				.icon(icon)
 				.priority(2)
 				.panel(panel)
 				.build();
 
 		clientToolbar.addNavigation(navButton);
+
+		//updateFollower();
+		panel.setDropdown();
+		panel.refreshStatPanel(true);
 	}
 
 	@Override
@@ -147,9 +152,14 @@ public class PetTrainingPlugin extends Plugin
 	}
 
 	public void removeCurrentPet() {
+		// first update the UI
+		panel.resetDisplayedPet(this.currentPetName, this.currentPetLevels);
+
+		// save and remove from plugin
 		saveCurrentPetStats();
 		this.currentPetLevels = null;
 		this.currentPet = null;
+		this.currentPetName = null;
 	}
 
 	public void updateFollower() {
@@ -168,8 +178,8 @@ public class PetTrainingPlugin extends Plugin
 			this.currentPetLevels = getExistingLevelsElseNew(name);
 
 			log.debug("no current pet; create new or pull existing");
-			log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
-			log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
+			//log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
+			//log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
 
 			panel.changeDisplayedPet(currentPetName);
 		}
@@ -297,6 +307,10 @@ public class PetTrainingPlugin extends Plugin
 		log.debug("all saved pet names {}", idList);
 
 		return idList;
+	}
+
+	public void printLog(String str) {
+		log.debug(str);
 	}
 
 }

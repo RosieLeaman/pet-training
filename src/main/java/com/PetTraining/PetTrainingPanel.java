@@ -115,12 +115,8 @@ public class PetTrainingPanel extends PluginPanel {
         // Panel with currently displayed pet's name
         JPanel namePanel = new JPanel();
         JLabel nameLabel = new JLabel();
-        if (plugin.getCurrentPet() != null) {
-            nameLabel.setText(plugin.getCurrentPet().getName());
-        }
-        else {
-            nameLabel.setText("No pet selected");
-        }
+        nameLabel.setText("No pet selected");
+
         namePanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         namePanel.setBorder(new EmptyBorder(2, 0, 2, 0));
         namePanel.add(nameLabel);
@@ -151,8 +147,6 @@ public class PetTrainingPanel extends PluginPanel {
         dropdownPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
         this.dropdownPanel = dropdownPanel;
         add(dropdownPanel, c);
-        // Don't add dropdown now as need to load profile first
-
     }
 
     private Integer getSkillLevel(PetSkill skill){
@@ -195,7 +189,8 @@ public class PetTrainingPanel extends PluginPanel {
     }
 
     public void setDropdown() {
-        repaint();
+        dropdownPanel.removeAll(); // get rid of any existing if present
+
 
         // Drop down selection box to change the pet
         List<String> dropdownOptions = getDropdownOptions();
@@ -222,6 +217,9 @@ public class PetTrainingPanel extends PluginPanel {
         });
 
         add(dropdownPanel, this.constraints);
+
+        dropdownPanel.repaint();
+        dropdownPanel.revalidate();
     }
 
 
@@ -289,6 +287,12 @@ public class PetTrainingPanel extends PluginPanel {
         Collections.sort(availablePets);
 
         return availablePets;
+    }
+
+    public void resetDisplayedPet(String name, PetLevels currentPetLevels) {
+        displayedIsFollower = false;
+        displayName = name;
+        displayedPetLevels = currentPetLevels;
     }
 
     public void changeDisplayedPet(String selectedName){
