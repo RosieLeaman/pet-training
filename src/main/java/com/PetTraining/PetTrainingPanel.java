@@ -307,7 +307,7 @@ public class PetTrainingPanel extends PluginPanel {
             setDropdown();
         }
 
-        }
-
     }
+
+}
 

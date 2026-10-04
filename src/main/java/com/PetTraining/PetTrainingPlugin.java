@@ -177,8 +177,6 @@ public class PetTrainingPlugin extends Plugin
 			this.currentPetLevels = getExistingLevelsElseNew(name);
 
 			log.debug("no current pet; create new or pull existing");
-			//log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
-			//log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
 
 			panel.changeDisplayedPet(currentPetName, true);
 			//panel.refreshStatPanel(true);
