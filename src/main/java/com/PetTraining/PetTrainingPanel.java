@@ -80,20 +80,7 @@ public class PetTrainingPanel extends PluginPanel {
 
         void init()
         {
-            setLayout(new BorderLayout());
-            setBackground(ColorScheme.DARK_GRAY_COLOR);
-            setBorder(new EmptyBorder(10, 10, 10, 10));
-
-            JPanel versionPanel = new JPanel();
-            versionPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-            versionPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-            versionPanel.setLayout(new GridLayout(0, 1));
-
-            final Font smallFont = FontManager.getRunescapeSmallFont();
-
-            JLabel revision = new JLabel();
-            revision.setFont(smallFont);
-
+            //
         }
 
     @Inject
@@ -191,7 +178,6 @@ public class PetTrainingPanel extends PluginPanel {
     public void setDropdown() {
         dropdownPanel.removeAll(); // get rid of any existing if present
 
-
         // Drop down selection box to change the pet
         List<String> dropdownOptions = getDropdownOptions();
 
@@ -203,6 +189,10 @@ public class PetTrainingPanel extends PluginPanel {
 
         JComboBox<String> dropdown = new JComboBox<>(dropdownArray);
 
+        if (plugin.getCurrentPetName() != null && dropdownOptions.contains(plugin.getCurrentPetName())) {
+            dropdown.setSelectedItem(displayName);
+        }
+
         this.dropdownPanel.add(dropdown);
 
         dropdown.addActionListener(new ActionListener() {
@@ -211,7 +201,7 @@ public class PetTrainingPanel extends PluginPanel {
             {
                 String selectedName = dropdown.getSelectedItem().toString();
                 if (selectedName != null) {
-                    changeDisplayedPet(selectedName);
+                    changeDisplayedPet(selectedName, false);
                 }
             }
         });
@@ -295,7 +285,7 @@ public class PetTrainingPanel extends PluginPanel {
         displayedPetLevels = currentPetLevels;
     }
 
-    public void changeDisplayedPet(String selectedName){
+    public void changeDisplayedPet(String selectedName, boolean updateDropdown){
         // conditions where nothing changes
         if (Objects.equals(selectedName, "No pets to select")) {
             return;
@@ -313,6 +303,10 @@ public class PetTrainingPanel extends PluginPanel {
         }
 
         refreshStatPanel(true);
+        if (updateDropdown) {
+            setDropdown();
+        }
+
         }
 
     }

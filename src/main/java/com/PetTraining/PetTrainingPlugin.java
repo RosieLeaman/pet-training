@@ -86,9 +86,9 @@ public class PetTrainingPlugin extends Plugin
 
 		clientToolbar.addNavigation(navButton);
 
-		//updateFollower();
-		panel.setDropdown();
+		// refresh the panel if the plugin was turned on while game running
 		panel.refreshStatPanel(true);
+		panel.setDropdown();
 	}
 
 	@Override
@@ -104,10 +104,9 @@ public class PetTrainingPlugin extends Plugin
 	{
 		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
 		{
-			//petXp.replaceAll((k,v) -> 0);
 			updateFollower();
-			panel.setDropdown();
 			panel.refreshStatPanel(true);
+			panel.setDropdown();
 		}
 	}
 
@@ -181,7 +180,8 @@ public class PetTrainingPlugin extends Plugin
 			//log.debug("XP: CRAFTING {} MINING {}", this.currentPetLevels.getXp(Skill.CRAFTING), this.currentPetLevels.getXp(Skill.MINING));
 			//log.debug("LEVEL: CRAFTING {} MINING {}", this.currentPetLevels.getLevel(Skill.CRAFTING), this.currentPetLevels.getLevel(Skill.MINING));
 
-			panel.changeDisplayedPet(currentPetName);
+			panel.changeDisplayedPet(currentPetName, true);
+			//panel.refreshStatPanel(true);
 		}
 	}
 
